@@ -25,7 +25,9 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Logger
+      Service
+      Types
   other-modules:
       Paths_derail
   hs-source-dirs:

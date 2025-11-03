@@ -1,6 +1,7 @@
 module Main (main) where
 
-import Lib
+import Service
+import Types
 
 main :: IO ()
-main = site (Cfg "temp salt" 8080 Info) (Logger Info)
+main = service (Cfg "temp salt" 8080 Info) (Logger Info)

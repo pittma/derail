@@ -1,8 +1,6 @@
 module Main (main) where
 
-import Web.Scotty
-
 import Lib
 
 main :: IO ()
-main = scotty 8080 (site (Logger Info))
+main = site (Cfg "temp salt" 8080 Info) (Logger Info)

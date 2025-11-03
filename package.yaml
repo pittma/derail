@@ -14,7 +14,6 @@ description: Please see the README on GitHub at <https://github.com/pittma/derai
 
 dependencies:
   - base >= 4.7 && < 5
-  - scotty
 
 ghc-options:
   - -Wall
@@ -33,6 +32,12 @@ library:
     - text
     - aeson
     - time
+    - scotty
+    - sqlite-simple
+    - bytestring
+    - byteable
+    - cryptohash
+    - utf8-string
 
 executables:
   derail:

@@ -38,6 +38,8 @@ library:
     - byteable
     - cryptohash
     - utf8-string
+    - safe-exceptions
+    - http-types
 
 executables:
   derail:

@@ -39,6 +39,8 @@ library
     , byteable
     , bytestring
     , cryptohash
+    , http-types
+    , safe-exceptions
     , scotty
     , sqlite-simple
     , text

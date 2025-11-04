@@ -15,7 +15,6 @@ data Visit = Visit {ip :: T.Text, page :: T.Text, timestamp :: Int}
     deriving (Generic)
 
 instance FromJSON Visit
-instance ToJSON Visit
 
 data VisitRow = VisitRow {iphash :: BS.ByteString, rowpage :: T.Text, rowts :: Int}
 
@@ -40,3 +39,13 @@ instance Show LogLevel where
 newtype Logger = Logger LogLevel
 
 data Config = Cfg {salt :: String, port :: Port, llevel :: LogLevel}
+
+newtype ErrMsg = ErrMsg {error :: String}
+    deriving (Generic)
+
+instance ToJSON ErrMsg
+
+newtype Resp = Resp {msg :: String}
+    deriving (Generic)
+
+instance ToJSON Resp

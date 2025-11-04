@@ -1,11 +1,11 @@
-module Logger where
+module Logger (logInfo, logError) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class
 
 import Data.Time
 
-import Types
+import Types (LogLevel (..), Logger (..))
 
 logMsg :: (MonadIO m) => Logger -> LogLevel -> String -> m ()
 logMsg (Logger level) msgLevel msg =

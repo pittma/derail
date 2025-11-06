@@ -40,6 +40,10 @@ library:
     - utf8-string
     - safe-exceptions
     - http-types
+    - wai
+    - wai-cors
+    - warp
+    - transformers
 
 executables:
   derail:
@@ -51,6 +55,8 @@ executables:
       - -with-rtsopts=-N
     dependencies:
       - derail
+      - optparse-applicative
+      - bytestring
 
 tests:
   derail-test:

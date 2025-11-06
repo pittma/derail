@@ -11,15 +11,23 @@ import Database.SQLite.Simple
 
 type Port = Int
 
-data Visit = Visit {ip :: T.Text, page :: T.Text, timestamp :: Int}
+data Visit = Visit
+    { pageRoute :: T.Text
+    , pageTitle :: T.Text
+    }
     deriving (Generic)
 
 instance FromJSON Visit
 
-data VisitRow = VisitRow {iphash :: BS.ByteString, rowpage :: T.Text, rowts :: Int}
+data VisitRow = VisitRow
+    { iphash :: BS.ByteString
+    , rowpath :: T.Text
+    , rowtitle :: T.Text
+    , rowts :: Int
+    }
 
 instance ToRow VisitRow where
-    toRow (VisitRow iph p ts) = toRow (iph, p, ts)
+    toRow (VisitRow iph path title ts) = toRow (iph, path, title, ts)
 
 data LogLevel
     = Trace
@@ -38,7 +46,14 @@ instance Show LogLevel where
 
 newtype Logger = Logger LogLevel
 
-data Config = Cfg {salt :: String, port :: Port, llevel :: LogLevel}
+data Config = Cfg
+    { salt :: String
+    , port :: Port
+    , llevel :: LogLevel
+    , origin :: BS.ByteString
+    }
+
+data Err = JSON String | DB Visit String
 
 newtype ErrMsg = ErrMsg {error :: String}
     deriving (Generic)

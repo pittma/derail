@@ -1,4 +1,4 @@
-module Logger (logInfo, logError) where
+module Logger (logInfo, logDebug, logError) where
 
 import Control.Monad (when)
 import Control.Monad.IO.Class
@@ -20,6 +20,9 @@ logMsg (Logger level) msgLevel msg =
             <> show msgLevel
             <> ": "
             <> msg
+
+logDebug :: (MonadIO m) => Logger -> String -> m ()
+logDebug l = logMsg l Debug
 
 logInfo :: (MonadIO m) => Logger -> String -> m ()
 logInfo l = logMsg l Info

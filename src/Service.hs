@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Service (service, LogLevel (..), Config (..)) where
+module Service (service, LogLevel (..), Config (..), Mode (..)) where
 
 import Control.Exception (try)
 import Control.Monad.IO.Class
@@ -17,7 +17,6 @@ import qualified Data.Text as T
 import Data.Time.Clock.POSIX
 import Database.SQLite.Simple
 import Network.HTTP.Types.Status
-
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
@@ -49,10 +48,10 @@ insertVisit conn ipHash v@(Visit route page) =
                 Left (SQLError _ m _) -> pure $ Left (DB v (T.unpack m))
                 Right _ -> pure $ Right ()
 
-dbInit :: Logger -> IO Connection
-dbInit l = do
-    logInfo l "opening database at derail.db"
-    conn <- open "derail.db"
+dbInit :: Logger -> FilePath -> IO Connection
+dbInit l dbp = do
+    logInfo l ("opening database at " <> dbp)
+    conn <- open dbp
     execute_ conn "CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY, iphash BLOB, route TEXT, title TEXT, timestamp INTEGER)"
     pure conn
 
@@ -82,11 +81,19 @@ referrerGuard rfr l app req resp =
                 "{\"error\": \"forbidden\"}"
             )
 
+getIp :: (Applicative m) => Request -> Mode -> ExceptT Err m String
+getIp r m = ExceptT $ do
+    case m of
+        Proxied -> case lookup "X-Forwarded-For" (requestHeaders r) of
+            Just ff -> pure $ Right (BS8.unpack ff)
+            Nothing -> pure $ Left $ Req "missing X-Forwarded-For header"
+        Direct -> pure $ Right (show $ remoteHost r)
+
 service :: Config -> IO ()
 service cfg =
     let l = Logger (llevel cfg)
      in do
-            c <- dbInit l
+            c <- dbInit l (db cfg)
             app <- scottyApp $ do
                 middleware (corsMiddleware [origin cfg])
                 middleware (referrerGuard (origin cfg) l)
@@ -100,13 +107,17 @@ service cfg =
                 post "/visit" $ do
                     b <- body
                     req <- request
-                    let ip = show $ remoteHost req
                     res <- runExceptT $ do
+                        ip <- getIp req (mode cfg)
                         v <- decodeVisit b
                         insertVisit c (hashIP (salt cfg) ip) v
                     case res of
                         Left (JSON m) -> do
                             logError l ("decoding visit failed: " <> m)
+                            status badRequest400
+                            json (ErrMsg m)
+                        Left (Req m) -> do
+                            logError l ("invalid request: " <> m)
                             status badRequest400
                             json (ErrMsg m)
                         Left (DB v m) -> do

@@ -1,6 +1,18 @@
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module Types where
+module Types (
+    Port,
+    Visit (..),
+    VisitRow (..),
+    LogLevel (..),
+    Logger (..),
+    Config (..),
+    Err (..),
+    ErrMsg (..),
+    Resp (..),
+    Mode (..),
+) where
 
 import GHC.Generics
 
@@ -35,7 +47,7 @@ data LogLevel
     | Info
     | Error
     | Fatal
-    deriving (Ord, Eq)
+    deriving (Ord, Eq, Generic)
 
 instance Show LogLevel where
     show Trace = "TRACE"
@@ -46,14 +58,22 @@ instance Show LogLevel where
 
 newtype Logger = Logger LogLevel
 
+data Mode = Proxied | Direct
+
 data Config = Cfg
-    { salt :: String
+    { mode :: Mode
+    , salt :: String
     , port :: Port
     , llevel :: LogLevel
     , origin :: BS.ByteString
+    , db :: FilePath
     }
+    deriving (Generic)
 
-data Err = JSON String | DB Visit String
+data Err
+    = JSON String
+    | DB Visit String
+    | Req String
 
 newtype ErrMsg = ErrMsg {error :: String}
     deriving (Generic)

@@ -14,6 +14,8 @@ description: Please see the README on GitHub at <https://github.com/pittma/derai
 
 dependencies:
   - base >= 4.7 && < 5
+  - aeson
+  - bytestring
 
 ghc-options:
   - -Wall
@@ -29,12 +31,9 @@ ghc-options:
 library:
   source-dirs: src
   dependencies:
-    - text
-    - aeson
     - time
     - scotty
     - sqlite-simple
-    - bytestring
     - byteable
     - cryptohash
     - utf8-string
@@ -44,6 +43,7 @@ library:
     - wai-cors
     - warp
     - transformers
+    - text
 
 executables:
   derail:
@@ -56,7 +56,8 @@ executables:
     dependencies:
       - derail
       - optparse-applicative
-      - bytestring
+      - yaml
+      - directory
 
 tests:
   derail-test:

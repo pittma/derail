@@ -5,6 +5,7 @@ module Main (main) where
 
 import Control.Exception
 import GHC.Generics
+import System.IO (BufferMode (..), hSetBuffering, stdout)
 
 import Data.Aeson (FromJSON)
 import qualified Data.ByteString.Char8 as BS8
@@ -48,6 +49,7 @@ optParser = Derail <$> argument str (metavar "CONFIG-PATH")
 
 main :: IO ()
 main = do
+    hSetBuffering stdout LineBuffering
     out <-
         ( try $ do
             (Derail path) <- execParser (info (optParser <**> helper) fullDesc)

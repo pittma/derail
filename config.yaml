@@ -4,3 +4,4 @@ port: 8080
 log_level: DEBUG
 origin: http://localhost:8000
 db_path: derail.db
+auth_token: temp-toke

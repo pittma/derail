@@ -24,6 +24,7 @@ data Conf = Conf
     , log_level :: String
     , origin :: String
     , db_path :: String
+    , auth_token :: String
     }
     deriving (Generic)
 
@@ -54,11 +55,11 @@ main = do
         ( try $ do
             (Derail path) <- execParser (info (optParser <**> helper) fullDesc)
             cp <- makeAbsolute path
-            (Conf m s p ll o dbp) <- decodeFileThrow cp
+            (Conf m s p ll o dbp at) <- decodeFileThrow cp
             dbp' <- makeAbsolute dbp
             level <- toLogLevel ll
             md <- toMode m
-            pure $ Cfg md s p level (BS8.pack o) dbp'
+            pure $ Cfg md s p level (BS8.pack o) dbp' (BS8.pack at)
         ) ::
             IO (Either IOError Config)
     case out of

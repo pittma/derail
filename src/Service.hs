@@ -2,11 +2,8 @@
 
 module Service (service, LogLevel (..), Config (..), Mode (..)) where
 
-import Control.Exception (try)
 import Control.Monad.IO.Class
-import Data.Bifunctor
 
-import Control.Monad.Trans.Except
 import Crypto.Hash
 import Data.Aeson (eitherDecode)
 import qualified Data.ByteString as BS
@@ -22,6 +19,7 @@ import Network.Wai.Handler.Warp
 import Network.Wai.Middleware.Cors
 import Web.Scotty
 
+import qualified App as A
 import Logger
 import Types
 
@@ -30,23 +28,20 @@ hashIP slt ips =
     let input = BS8.pack (ips <> slt)
      in BS.take 16 $ toBytes (hash input :: Digest SHA256)
 
-decodeVisit :: (MonadIO m) => BSL.ByteString -> ExceptT Err m Visit
-decodeVisit b = ExceptT $ pure $ first JSON (eitherDecode b)
+decodeVisit :: (MonadIO m) => BSL.ByteString -> App m Visit
+decodeVisit b = A.fromEitherWith JSON (eitherDecode b)
 
-insertVisit :: (MonadIO m) => Connection -> BS.ByteString -> Visit -> ExceptT Err m ()
-insertVisit conn ipHash v@(Visit route page) =
-    ExceptT $
-        liftIO $ do
-            res <-
-                try $ do
-                    ts <- getPOSIXTime
-                    execute
-                        conn
-                        "INSERT INTO visits (iphash, route, title, timestamp) VALUES (?,?,?,?)"
-                        (VisitRow ipHash route page (floor ts))
-            case res of
-                Left (SQLError _ m _) -> pure $ Left (DB v (T.unpack m))
-                Right _ -> pure $ Right ()
+insertVisit :: (MonadIO m) => Connection -> BS.ByteString -> Visit -> App m ()
+insertVisit conn ipHash v@(Visit rt page) = do
+    ts <- liftIO getPOSIXTime
+    A.executeWithVisit
+        v
+        conn
+        "INSERT INTO visits (iphash, route, title, timestamp) VALUES (?,?,?,?)"
+        (VisitRow ipHash rt page (floor ts))
+
+getTopRoutes :: (MonadIO m) => Connection -> App m [Route]
+getTopRoutes c = A.query_ c "SELECT route, title, COUNT(*) AS count FROM visits GROUP BY route ORDER BY count DESC"
 
 dbInit :: Logger -> FilePath -> IO Connection
 dbInit l dbp = do
@@ -81,13 +76,19 @@ referrerGuard rfr l app req resp =
                 "{\"error\": \"forbidden\"}"
             )
 
-getIp :: (Applicative m) => Request -> Mode -> ExceptT Err m String
-getIp r m = ExceptT $ do
-    case m of
-        Proxied -> case lookup "X-Forwarded-For" (requestHeaders r) of
-            Just ff -> pure $ Right (BS8.unpack ff)
-            Nothing -> pure $ Left $ Req "missing X-Forwarded-For header"
-        Direct -> pure $ Right (show $ remoteHost r)
+getIp :: (Applicative m) => Request -> Mode -> App m String
+getIp r m = A.fromEither $ case m of
+    Proxied -> case lookup "X-Forwarded-For" (requestHeaders r) of
+        Just ff -> Right (BS8.unpack ff)
+        Nothing -> Left $ Req "missing X-Forwarded-For header"
+    Direct -> Right (show $ remoteHost r)
+
+checkToken :: (Monad m) => BS8.ByteString -> Maybe BS8.ByteString -> App m ()
+checkToken t h = A.fromEither $ case h of
+    Just hd
+        | t == hd -> Right ()
+        | otherwise -> Left (Req "invalid access token")
+    Nothing -> Left (Req "access token missing")
 
 service :: Config -> IO ()
 service cfg =
@@ -98,7 +99,28 @@ service cfg =
                 middleware (corsMiddleware [origin cfg])
                 middleware (referrerGuard (origin cfg) l)
                 get "/alive" $ do
-                    text "hello"
+                    json (Resp "alive")
+                get "/top" $ do
+                    req <- request
+                    res <-
+                        A.run $ do
+                            checkToken (token cfg) (lookup "X-access-token" (requestHeaders req))
+                            getTopRoutes c
+
+                    case res of
+                        Left (Db _ e) -> do
+                            logError l ("query failed: " <> e)
+                            json (ErrMsg e)
+                        Left (Req m) -> do
+                            logError l ("invalid request to /top: " <> m)
+                            status forbidden403
+                            json (ErrMsg m)
+                        Left _ -> do
+                            logError l "unknown error occurred when retrieving top routes"
+                            status internalServerError500
+                            json (ErrMsg "unknwon error occurred")
+                        Right r -> do
+                            json r
                 options "/visit" $ do
                     logDebug l "OPTION hit"
                     req <- request
@@ -107,7 +129,7 @@ service cfg =
                 post "/visit" $ do
                     b <- body
                     req <- request
-                    res <- runExceptT $ do
+                    res <- A.run $ do
                         ip <- getIp req (mode cfg)
                         v <- decodeVisit b
                         insertVisit c (hashIP (salt cfg) ip) v
@@ -120,10 +142,14 @@ service cfg =
                             logError l ("invalid request: " <> m)
                             status badRequest400
                             json (ErrMsg m)
-                        Left (DB v m) -> do
+                        Left (Db (Just v) m) -> do
                             logError l ("insertion of visit to " <> T.unpack (pageRoute v) <> "failed: " <> m)
                             status internalServerError500
                             json (ErrMsg m)
+                        Left _ -> do
+                            logError l "unknown error occurred on visit insertion"
+                            status internalServerError500
+                            json (ErrMsg "unknown error")
                         Right _ -> logDebug l "visit saved" >> json (Resp "success")
             logInfo l "ready."
             run (port cfg) app

@@ -12,12 +12,16 @@ module Types (
     ErrMsg (..),
     Resp (..),
     Mode (..),
+    Route (..),
+    App,
 ) where
 
 import GHC.Generics
 
+import Control.Monad.Trans.Except
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Text as T
 import Database.SQLite.Simple
 
@@ -27,7 +31,7 @@ data Visit = Visit
     { pageRoute :: T.Text
     , pageTitle :: T.Text
     }
-    deriving (Generic)
+    deriving (Show, Generic)
 
 instance FromJSON Visit
 
@@ -39,7 +43,7 @@ data VisitRow = VisitRow
     }
 
 instance ToRow VisitRow where
-    toRow (VisitRow iph path title ts) = toRow (iph, path, title, ts)
+    toRow (VisitRow iph path t ts) = toRow (iph, path, t, ts)
 
 data LogLevel
     = Trace
@@ -67,13 +71,15 @@ data Config = Cfg
     , llevel :: LogLevel
     , origin :: BS.ByteString
     , db :: FilePath
+    , token :: BS8.ByteString
     }
     deriving (Generic)
 
 data Err
     = JSON String
-    | DB Visit String
+    | Db (Maybe Visit) String
     | Req String
+    deriving (Show)
 
 newtype ErrMsg = ErrMsg {error :: String}
     deriving (Generic)
@@ -84,3 +90,16 @@ newtype Resp = Resp {msg :: String}
     deriving (Generic)
 
 instance ToJSON Resp
+
+data Route = Route
+    { route :: T.Text
+    , title :: T.Text
+    , visits :: Int
+    }
+    deriving (Show, Generic)
+
+instance ToJSON Route
+
+instance FromRow Route
+
+type App m a = ExceptT Err m a

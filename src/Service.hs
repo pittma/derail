@@ -32,13 +32,13 @@ decodeVisit :: (MonadIO m) => BSL.ByteString -> App m Visit
 decodeVisit b = A.fromEitherWith JSON (eitherDecode b)
 
 insertVisit :: (MonadIO m) => Connection -> BS.ByteString -> Visit -> App m ()
-insertVisit conn ipHash v@(Visit rt page) = do
+insertVisit conn ipHash v@(Visit rt page rfr) = do
     ts <- liftIO getPOSIXTime
     A.executeWithVisit
         v
         conn
-        "INSERT INTO visits (iphash, route, title, timestamp) VALUES (?,?,?,?)"
-        (VisitRow ipHash rt page (floor ts))
+        "INSERT INTO visits (iphash, route, title, timestamp, referrer) VALUES (?,?,?,?,?)"
+        (VisitRow ipHash rt page (floor ts) rfr)
 
 getTopRoutes :: (MonadIO m) => Connection -> App m [Route]
 getTopRoutes c = A.query_ c "SELECT route, title, COUNT(*) AS count FROM visits GROUP BY route ORDER BY count DESC"

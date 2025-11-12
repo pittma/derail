@@ -30,6 +30,7 @@ type Port = Int
 data Visit = Visit
     { pageRoute :: T.Text
     , pageTitle :: T.Text
+    , pageReferrer :: T.Text
     }
     deriving (Show, Generic)
 
@@ -40,10 +41,11 @@ data VisitRow = VisitRow
     , rowpath :: T.Text
     , rowtitle :: T.Text
     , rowts :: Int
+    , rowreferrer :: T.Text
     }
 
 instance ToRow VisitRow where
-    toRow (VisitRow iph path t ts) = toRow (iph, path, t, ts)
+    toRow (VisitRow iph path t ts rfr) = toRow (iph, path, t, ts, rfr)
 
 data LogLevel
     = Trace
